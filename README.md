@@ -1,2 +1,4 @@
 # bellbot
-A Euphoria bot that watches for the disappearance of a user
+
+A [Euphoria](https://euphoria.io) bot that watches for the disappearance of a
+user.
