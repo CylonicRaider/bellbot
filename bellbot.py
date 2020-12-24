@@ -14,6 +14,24 @@ import basebot
 DEFAULT_TIMEOUT = 604800 # 1 week
 WAITER_FUZZ = 1 # 1 second
 
+TIME_TOKEN_RE = re.compile(r'\s*([0-9]+(\.[0-9]+)?)([wdhms])\s*')
+TIME_TOKEN_VALUES = {'w': 604800, 'd': 86400, 'h': 3600, 'm': 60, 's': 1}
+
+def parse_timediff(s):
+    if not s:
+        raise ValueError('Invalid empty duration (use something like "0s" '
+                         'instead)')
+    index, total = 0, 0
+    while index < len(s):
+        m = TIME_TOKEN_RE.match(s, index)
+        if not m:
+            raise ValueError('Invalid duration (syntax error around '
+                             'character %s)' % index)
+        index = m.end()
+        value = float(m.group(1)) if m.group(2) else int(m.group(1))
+        total += value * TIME_TOKEN_VALUES[m.group(3)]
+    return total
+
 def match_check(msg, check):
     if check['type'] == 'nick':
         return msg.sender.name == check['nick']
