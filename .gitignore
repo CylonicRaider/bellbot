@@ -4,7 +4,7 @@ __pycache__/
 
 # Library symlinks
 /basebot.py
-/websocket_server/
+/websocket_server
 
 # Miscellaneous
 /local/
