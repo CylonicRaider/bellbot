@@ -6,11 +6,13 @@ A Euphoria bot that watches for the disappearance of a user.
 """
 
 import re, time
+import bisect
 import threading
 
 import basebot
 
 DEFAULT_TIMEOUT = 604800 # 1 week
+WAITER_FUZZ = 1 # 1 second
 
 def match_check(msg, check):
     if check['type'] == 'nick':
@@ -22,13 +24,38 @@ def match_check(msg, check):
     else:
         raise RuntimeError('Unrecognized check %r' % (check['type'],))
 
+def do_warning(bot, text):
+    if text is None:
+        bot.logger.info('Main timeout expired.')
+    else:
+        bot.send_chat(text)
+
 def waiter(bot):
     sorted_warnings = [(bot.main_timeout, None)]
     sorted_warnings.extend((w['timeout'], w['text']) for w in bot.warnings)
     sorted_warnings.sort()
+    timeouts = [w[0] for w in sorted_warnings]
+    warning_count = len(sorted_warnings)
+    cur_index, last_last_seen = None, None
     with bot.cond:
         while 1:
-            bot.cond.wait()
+            if bot.last_seen is None:
+                bot.cond.wait()
+                continue
+            now = time.time() - bot.last_seen
+            if bot.last_seen != last_last_seen:
+                last_last_seen = bot.last_seen
+                cur_index = bisect.bisect_left(timeouts, now - WAITER_FUZZ)
+            while cur_index < warning_count and now <= timeouts[cur_index]:
+                do_warning(bot, sorted_warnings[cur_index][1])
+                cur_index += 1
+            if cur_index == warning_count:
+                bot.cond.wait()
+                continue
+            delay = bot.last_seen + timeouts[cur_index] - time.time()
+            if delay <= 0:
+                continue
+            bot.cond.wait(delay)
 
 class BellBot(basebot.BaseBot):
     BOTNAME = 'BellBot'
