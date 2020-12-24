@@ -91,14 +91,19 @@ class BellBot(basebot.BaseBot):
         self.last_seen = None
 
     def _process_post(self, msg):
-        if not any(match_check(msg, check) for check in self.checks): return
-        if self.last_seen is not None and self.last_seen >= msg.time: return
+        if not any(match_check(msg, check) for check in self.checks):
+            return False
+        if self.last_seen is not None and self.last_seen >= msg.time:
+            return False
         self.last_seen = msg.time
         self.cond.notifyAll()
+        return True
 
     def handle_chat(self, msg, meta):
         with self.cond:
-            self._process_post(msg)
+            if self._process_post(msg):
+                self.logger.info('Quarry posted: <%s> %r' % (msg.sender.name,
+                                                             msg.content))
 
     def handle_logs(self, msglist, meta):
         if not msglist:
@@ -112,7 +117,8 @@ class BellBot(basebot.BaseBot):
                     oldest_id = msg.id
                 self._process_post(msg)
             if self.last_seen is not None:
-                self.logger.info('Quarry located; log search done.')
+                self.logger.info('Quarry located (at %s); log search done.' %
+                                 basebot.format_datetime(self.last_seen))
                 return
             if oldest + self._max_timeout < time.time():
                 self.logger.info('Quarry not located within max timeout; '
