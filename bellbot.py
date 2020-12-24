@@ -12,12 +12,13 @@ import threading
 import basebot
 
 DEFAULT_TIMEOUT = 604800 # 1 week
+DEFAULT_WARNING = '/me *Dong*...'
 WAITER_FUZZ = 1 # 1 second
 
 TIME_TOKEN_RE = re.compile(r'\s*([0-9]+(\.[0-9]+)?)([wdhms])\s*')
 TIME_TOKEN_VALUES = {'w': 604800, 'd': 86400, 'h': 3600, 'm': 60, 's': 1}
 
-def parse_timediff(s):
+def parse_duration(s):
     if not s:
         raise ValueError('Invalid empty duration (use something like "0s" '
                          'instead)')
@@ -125,7 +126,73 @@ class BellBot(basebot.BaseBot):
         basebot.spawn_thread(waiter, self)
         basebot.BaseBot.main(self)
 
+class BellBotManager(basebot.BotManager):
+    @classmethod
+    def prepare_parser(cls, parser, config):
+        def check(s):
+            tp, sep, pattern = s.partition(':')
+            if not sep:
+                raise ValueError('Invalid check (missing colon)')
+            elif tp == 'nick':
+                pattern_key = 'nick'
+            elif tp == 'nick-regex':
+                pattern_key = 'regex'
+                pattern = re.compile(pattern)
+            elif tp == 'uid':
+                pattern_key = 'uid'
+            else:
+                raise ValueError('Unrecognized check type %s' % (tp,))
+            return {'type': tp, pattern_key: pattern}
+
+        def timeout(s):
+            return parse_duration(s)
+
+        def warning(s):
+            timeout, sep, text = s.partition(':')
+            if not sep:
+                raise ValueError('Invalid warning (missing colon)')
+            return {'timeout': parse_duration(timeout), 'text': text}
+
+        basebot.BotManager.prepare_parser(parser, config)
+        parser.add_argument('--check', metavar='TYPE:PATTERN',
+                            action='append', type=check, dest='checks',
+                            default=[],
+                            help='Add a rule for identifying the user to '
+                                 'watch (one of nick:NICKNAME, '
+                                 'nick-regex:PATTERN, or uid:UID; '
+                                 'no default)')
+        parser.add_argument('--timeout', metavar='DURATION', type=timeout,
+                            dest='main_timeout', default=DEFAULT_TIMEOUT,
+                            help='The "primary" timeout, associated with a '
+                                 'default warning (default %s)' %
+                                 basebot.format_delta(DEFAULT_TIMEOUT,
+                                                      False))
+        parser.add_argument('--no-default-warning', action='store_true',
+                            help='Suppress the default warning (which is %r '
+                            'at the main timeout)' % DEFAULT_WARNING)
+        parser.add_argument('--warn', metavar='DURATION:TEXT',
+                            action='append', type=warning, dest='warnings',
+                            default=[],
+                            help='Configure a custom announcement to be '
+                                 'posted a custom time after the user\'s '
+                                 'last post (no default)')
+
+    @classmethod
+    def interpret_args(cls, arguments, config):
+        bots, config = basebot.BotManager.interpret_args(arguments, config)
+        if arguments.checks:
+            config['checks'] = arguments.checks
+        if arguments.main_timeout:
+            config['main_timeout'] = arguments.main_timeout
+        if arguments.warnings:
+            if not arguments.no_default_warning:
+                dw = {'timeout': arguments.main_timeout,
+                      'text': DEFAULT_WARNING}
+                arguments.warnings.insert(0, dw)
+            config['warnings'] = arguments.warnings
+        return (bots, config)
+
 def main():
-    basebot.run_main(BellBot)
+    basebot.run_main(BellBot, mgrcls=BellBotManager)
 
 if __name__ == '__main__': main()
