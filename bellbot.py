@@ -52,7 +52,7 @@ def do_warning(bot, text):
 def waiter(bot):
     sorted_warnings = [(bot.main_timeout, None)]
     sorted_warnings.extend((w['timeout'], w['text']) for w in bot.warnings)
-    sorted_warnings.sort()
+    sorted_warnings.sort(key=lambda w: w[0])
     timeouts = [w[0] for w in sorted_warnings]
     warning_count = len(sorted_warnings)
     cur_index, last_last_seen = None, None
@@ -65,7 +65,7 @@ def waiter(bot):
             if bot.last_seen != last_last_seen:
                 last_last_seen = bot.last_seen
                 cur_index = bisect.bisect_left(timeouts, now - WAITER_FUZZ)
-            while cur_index < warning_count and now <= timeouts[cur_index]:
+            while cur_index < warning_count and now >= timeouts[cur_index]:
                 do_warning(bot, sorted_warnings[cur_index][1])
                 cur_index += 1
             if cur_index == warning_count:
@@ -180,16 +180,13 @@ class BellBotManager(basebot.BotManager):
     @classmethod
     def interpret_args(cls, arguments, config):
         bots, config = basebot.BotManager.interpret_args(arguments, config)
-        if arguments.checks:
-            config['checks'] = arguments.checks
-        if arguments.main_timeout:
-            config['main_timeout'] = arguments.main_timeout
-        if arguments.warnings:
-            if not arguments.no_default_warning:
-                dw = {'timeout': arguments.main_timeout,
-                      'text': DEFAULT_WARNING}
-                arguments.warnings.insert(0, dw)
-            config['warnings'] = arguments.warnings
+        config['checks'] = arguments.checks
+        config['main_timeout'] = arguments.main_timeout
+        if not arguments.no_default_warning:
+            dw = {'timeout': arguments.main_timeout,
+                  'text': DEFAULT_WARNING}
+            arguments.warnings.insert(0, dw)
+        config['warnings'] = arguments.warnings
         return (bots, config)
 
 def main():
