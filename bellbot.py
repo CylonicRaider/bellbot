@@ -65,6 +65,8 @@ def waiter(bot):
             if bot.last_seen != last_last_seen:
                 last_last_seen = bot.last_seen
                 cur_index = bisect.bisect_left(timeouts, now - WAITER_FUZZ)
+                bot.manager.set_deadline(bot.roomname,
+                                         bot.last_seen + bot.main_timeout)
             while cur_index < warning_count and now >= timeouts[cur_index]:
                 do_warning(bot, sorted_warnings[cur_index][1])
                 cur_index += 1
@@ -206,6 +208,11 @@ class BellBotManager(basebot.BotManager):
         self.room_deadlines = {}
         self._deadline_lock = threading.RLock()
         self._room_deadline_conds = {}
+
+    def make_bot(self, *args, **kwds):
+        bot = basebot.BotManager.make_bot(self, *args, **kwds)
+        self.set_deadline(bot.roomname, None)
+        return bot
 
     def get_deadline(self, room):
         with self._deadline_lock:
