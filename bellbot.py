@@ -134,6 +134,12 @@ class BellBot(basebot.BaseBot):
 
 class BellBotManager(basebot.BotManager):
     @classmethod
+    def create_parser(cls, config, kwds=None):
+        if kwds is None: kwds = {}
+        kwds['fromfile_prefix_chars'] = '@'
+        return basebot.BotManager.create_parser(config, kwds)
+
+    @classmethod
     def prepare_parser(cls, parser, config):
         def check(s):
             tp, sep, pattern = s.partition(':')
