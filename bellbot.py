@@ -201,6 +201,33 @@ class BellBotManager(basebot.BotManager):
         config['warnings'] = arguments.warnings
         return (bots, config)
 
+    def __init__(self, **config):
+        basebot.BotManager.__init__(self, **config)
+        self.room_deadlines = {}
+        self._deadline_lock = threading.RLock()
+        self._room_deadline_conds = {}
+
+    def get_deadline(self, room):
+        with self._deadline_lock:
+            return self.room_deadlines[room]
+
+    def set_deadline(self, room, ts):
+        with self._deadline_lock:
+            self.room_deadlines[room] = ts
+            cond = self._room_deadline_conds.get(room)
+            if cond: cond.notifyAll()
+
+    def wait_deadline(self, room, timeout=None):
+        with self._deadline_lock:
+            if room not in self.room_deadlines:
+                raise KeyError(room)
+            cond = self._room_deadline_conds.get(room)
+            if not cond:
+                cond = threading.Condition(self._room_deadline_lock)
+                self._room_deadline_conds[room] = cond
+            cond.wait(timeout)
+            return self.room_deadlines[room]
+
 def main():
     basebot.run_main(BellBot, mgrcls=BellBotManager)
 
