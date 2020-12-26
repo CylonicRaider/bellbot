@@ -10,6 +10,7 @@ import bisect
 import threading
 
 import basebot
+import websocket_server
 
 DEFAULT_TIMEOUT = 604800 # 1 week
 DEFAULT_WARNING = '/me *Dong*...'
@@ -133,6 +134,57 @@ class BellBot(basebot.BaseBot):
     def main(self):
         basebot.spawn_thread(waiter, self)
         basebot.BaseBot.main(self)
+
+class APIHandler:
+    def __init__(self, address, origin=None, ssl_config=None):
+        self.address = address
+        self.origin = origin
+        self.ssl_config = ssl_config
+        self.parent = None
+        self.lock = threading.RLock()
+        self._cond = threading.Condition(self.lock)
+        self._running = False
+        self._server = None
+
+    def start(self):
+        with self.lock:
+            self._running = True
+            basebot.spawn_thread(self.main)
+
+    def shutdown(self):
+        with self._cond:
+            self._running = False
+            if self._server is not None:
+                self._server.shutdown()
+            self._cond.notifyAll()
+
+    def join(self):
+        with self._cond:
+            while self._running or self._server:
+                self._cond.wait()
+
+    def make_request_handler(self):
+        return websocket_server.httpserver.HTTPRequestHandler()
+
+    def main(self):
+        httpd = websocket_server.httpserver.WSSHTTPServer(self.address,
+            self.make_request_handler())
+        if self.origin: httpd.origin = self.origin
+        if self.ssl_config: httpd.setup_ssl(self.ssl_config)
+        with self._cond:
+            if not self._running:
+                httpd.server_close()
+                return
+            self._server = httpd
+        try:
+            httpd.serve_forever()
+        finally:
+            try:
+                httpd.server_close()
+            finally:
+                with self._cond:
+                    self._server = None
+                    self._cond.notifyAll()
 
 class BellBotManager(basebot.BotManager):
     @classmethod
