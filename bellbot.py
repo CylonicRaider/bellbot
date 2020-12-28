@@ -8,6 +8,7 @@ A Euphoria bot that watches for the disappearance of a user.
 import re, time
 import bisect
 import threading
+import logging
 
 import basebot
 import websocket_server
@@ -141,6 +142,7 @@ class APIHandler:
         self.origin = origin
         self.ssl_config = ssl_config
         self.parent = None
+        self.logger = logging.getLogger('api')
         self.lock = threading.RLock()
         self._cond = threading.Condition(self.lock)
         self._running = False
@@ -164,7 +166,7 @@ class APIHandler:
                 self._cond.wait()
 
     def make_request_handler(self):
-        return websocket_server.httpserver.HTTPRequestHandler()
+        return websocket_server.httpserver.HTTPRequestHandler
 
     def main(self):
         httpd = websocket_server.httpserver.WSSHTTPServer(self.address,
@@ -176,6 +178,8 @@ class APIHandler:
                 httpd.server_close()
                 return
             self._server = httpd
+        self.logger.info('Serving HTTP on %s:%s (origin %s)...' % (
+            self.address[0] or '*', self.address[1], httpd.origin or 'N/A'))
         try:
             httpd.serve_forever()
         finally:
@@ -242,6 +246,19 @@ class BellBotManager(basebot.BotManager):
                             help='Configure a custom announcement to be '
                                  'posted a custom time after the user\'s '
                                  'last post (no default)')
+        parser.add_argument('--api-host', metavar='IP',
+                            help='Network interface to bind the HTTP API to')
+        parser.add_argument('--api-port', metavar='PORT', type=int,
+                            help='TCP port to serve the HTTP API from (if '
+                                 'not specified, the API is disabled)')
+        parser.add_argument('--api-origin',
+                            help='Web origin effectively served by the API '
+                                 '(in particular if reverse proxies are '
+                                 'involved)')
+        parser.add_argument('--api-tls', metavar='PARAM=VALUE[,...]',
+                            type=websocket_server.quick.tls_flags,
+                            help='Use TLS for the HTTP API with the given '
+                                 'configuration.')
 
     @classmethod
     def interpret_args(cls, arguments, config):
@@ -253,13 +270,24 @@ class BellBotManager(basebot.BotManager):
                   'text': DEFAULT_WARNING}
             arguments.warnings.insert(0, dw)
         config['warnings'] = arguments.warnings
+        if arguments.api_port:
+            config['api'] = {
+                'address': websocket_server.quick.resolve_listen_address(
+                    (arguments.api_host, arguments.api_port),
+                    arguments.api_origin),
+                'origin': arguments.api_origin,
+                'ssl_config': arguments.api_tls}
         return (bots, config)
 
     def __init__(self, **config):
         basebot.BotManager.__init__(self, **config)
         self.room_deadlines = {}
+        self.api_handler = None
         self._room_deadline_lock = threading.RLock()
         self._room_deadline_conds = {}
+        if config.get('api'):
+            self.api_handler = APIHandler(**config['api'])
+            self.add_child(self.api_handler)
 
     def make_bot(self, *args, **kwds):
         bot = basebot.BotManager.make_bot(self, *args, **kwds)
