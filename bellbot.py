@@ -165,8 +165,21 @@ class APIHandler:
             while self._running or self._server:
                 self._cond.wait()
 
+    def _get_deadline(self, hnd, room):
+        try:
+            value = self.parent.get_deadline(room)
+        except KeyError:
+            hnd.send_404()
+            return
+        if value is None:
+            hnd.send_text(200, '-')
+        else:
+            hnd.send_text(200, str(value))
+
     def make_request_handler(self):
-        return websocket_server.httpserver.HTTPRequestHandler
+        route = websocket_server.httpserver.RouteSet()
+        route.add(self._get_deadline, '/<room>/get')
+        return route.build(websocket_server.httpserver.RoutingRequestHandler)
 
     def main(self):
         httpd = websocket_server.httpserver.WSSHTTPServer(self.address,
