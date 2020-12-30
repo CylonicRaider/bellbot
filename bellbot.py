@@ -165,20 +165,36 @@ class APIHandler:
             while self._running or self._server:
                 self._cond.wait()
 
+    def _format_deadline(self, value):
+        return '-' if value is None else str(value)
+
     def _get_deadline(self, hnd, room):
         try:
             value = self.parent.get_deadline(room)
         except KeyError:
             hnd.send_404()
             return
-        if value is None:
-            hnd.send_text(200, '-')
-        else:
-            hnd.send_text(200, str(value))
+        hnd.send_text(200, self._format_deadline(value))
+
+    def _watch_deadline(self, hnd, room):
+        try:
+            value = self.parent.get_deadline(room)
+        except KeyError:
+            hnd.send_404()
+            return
+        hnd.send_response(200)
+        hnd.send_header('Content-Type', 'text/event-stream')
+        hnd.end_headers()
+        while 1:
+            hnd.wfile.write(('data: %s\r\n\r\n' %
+                             self._format_deadline(value)).encode('ascii'))
+            hnd.wfile.flush()
+            value = self.parent.wait_deadline(room)
 
     def make_request_handler(self):
         route = websocket_server.httpserver.RouteSet()
         route.add(self._get_deadline, '/<room>/get')
+        route.add(self._watch_deadline, '/<room>/watch')
         return route.build(websocket_server.httpserver.RoutingRequestHandler)
 
     def main(self):
