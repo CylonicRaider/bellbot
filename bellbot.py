@@ -174,7 +174,13 @@ class APIHandler:
         except KeyError:
             hnd.send_404()
             return
-        hnd.send_text(200, self._format_deadline(value))
+        text = self._format_deadline(value).encode('ascii')
+        hnd.send_response(200)
+        hnd.send_header('Content-Type', 'text/plain; charset=utf-8')
+        hnd.send_header('Content-Length', str(len(text)))
+        hnd.send_header('Access-Control-Allow-Origin', '*')
+        hnd.end_headers()
+        hnd.wfile.write(text)
 
     def _watch_deadline(self, hnd, room):
         try:
@@ -184,6 +190,7 @@ class APIHandler:
             return
         hnd.send_response(200)
         hnd.send_header('Content-Type', 'text/event-stream')
+        hnd.send_header('Access-Control-Allow-Origin', '*')
         hnd.end_headers()
         while 1:
             hnd.wfile.write(('data: %s\r\n\r\n' %
