@@ -44,14 +44,26 @@ void function() {
     _trackDeadline: function(label) {
       if (deadlineTrackers[label]) return;
       var info = {
+        label: label,
         es: new EventSource(apiBaseURL + label + '/watch'),
-        current: null
+        value: null,
+        listeners: []
       };
       info.es.onmessage = function(event) {
-        info.current = BellBotAPI._parseDeadline(event.data);
+        if (deadlineTrackers[label] != info) {
+          es.close();
+          return;
+        }
+        info.value = BellBotAPI._parseDeadline(event.data);
+        info.listeners.forEach(function(l) {
+          l.call(info, info.value);
+        });
       };
       info.es.onerror = function(event) {
-        if (deadlineTrackers[label] != info) return;
+        if (deadlineTrackers[label] != info) {
+          es.close();
+          return;
+        }
         delete deadlineTrackers[label];
       };
       deadlineTrackers[label] = info;
@@ -61,6 +73,21 @@ void function() {
       if (! deadlineTrackers[label]) return;
       deadlineTrackers[label].es.close();
       delete deadlineTrackers[label];
+    },
+    /* Listen for updates of the given deadline. */
+    watchDeadline: function(label, callback) {
+      BellBotAPI._trackDeadline(label);
+      deadlineTrackers[label].push(callback);
+    },
+    /* Stop listening the given deadline's changes. */
+    unwatchDeadline: function(label, callback) {
+      if (! deadlineTrackers[label]) return;
+      var listeners = deadlineTrackers[label].listeners;
+      var index = listeners.indexOf(callback);
+      if (index == -1) return;
+      listeners.splice(index, 1);
+      if (listeners.length) return;
+      BellBotAPI._untrackDeadline(label);
     }
   };
   window.BellBotAPI = BellBotAPI;
