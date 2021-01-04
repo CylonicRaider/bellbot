@@ -88,6 +88,41 @@ void function() {
       listeners.splice(index, 1);
       if (listeners.length) return;
       BellBotAPI._untrackDeadline(label);
+    },
+    /* Run the given callback at given deadline. */
+    runAtDeadline: function(label, callback) {
+      function onDeadline(deadline) {
+        currentDeadline = deadline;
+        maybeScheduleRun(deadline);
+      }
+      function maybeScheduleRun(deadline) {
+        if (deadline != null && timeoutID == null) {
+          timeoutID = setTimeout(function() {
+            timeoutID = null;
+            if (currentDeadline == deadline) {
+              callback();
+            } else {
+              maybeScheduleRun(currentDeadline);
+            }
+          }, deadline - Date.now());
+        } else if (deadline == null && timeoutID != null) {
+          clearTimeout(timeoutID);
+        }
+      }
+      function cancel() {
+        if (timeoutID != null) clearTimeout(timeoutID);
+        BellBotAPI.unwatchDeadline(label, onDeadline);
+      }
+      var timeoutID = null, currentDeadline = null;
+      BellBotAPI.watchDeadline(label, onDeadline);
+      callback._cancel_runAtDeadline = cancel;
+    },
+    /* Drop the given at-deadline callback. */
+    dontRunAtDeadline: function(label, callback) {
+      if (callback._cancel_runAtDeadline) {
+        callback._cancel_runAtDeadline();
+        delete callback._cancel_runAtDeadline;
+      }
     }
   };
   window.BellBotAPI = BellBotAPI;
