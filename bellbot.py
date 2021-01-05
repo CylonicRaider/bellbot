@@ -5,8 +5,9 @@
 A Euphoria bot that watches for the disappearance of a user.
 """
 
-import re, time
+import os, re, time
 import bisect
+import inspect
 import threading
 import logging
 
@@ -19,6 +20,8 @@ WAITER_FUZZ = 1 # 1 second
 
 TIME_TOKEN_RE = re.compile(r'\s*([0-9]+(\.[0-9]+)?)([wdhms])\s*')
 TIME_TOKEN_VALUES = {'w': 604800, 'd': 86400, 'h': 3600, 'm': 60, 's': 1}
+
+THIS_DIR = os.path.abspath(os.path.dirname(inspect.getfile(lambda: None)))
 
 def parse_duration(s):
     if not s:
@@ -199,9 +202,15 @@ class APIHandler:
             value = self.parent.wait_deadline(room)
 
     def make_request_handler(self):
+        def serve_file(hnd):
+            hnd.send_cache(files)
+        files = websocket_server.httpserver.FileCache(os.path.join(THIS_DIR,
+                                                                   'www'))
         route = websocket_server.httpserver.RouteSet()
         route.add(self._get_deadline, '/<room>/get')
         route.add(self._watch_deadline, '/<room>/watch')
+        route.add(serve_file, '/sdk.js')
+        route.add(serve_file, '/test.html')
         return route.build(websocket_server.httpserver.RoutingRequestHandler)
 
     def main(self):
