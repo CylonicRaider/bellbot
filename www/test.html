@@ -3,9 +3,36 @@
   <head>
     <meta charset="utf-8"/>
     <title>BellBot API test page</title>
+    <script id="api-script" src="sdk.js" defer="defer"></script>
+    <script type="application/javascript">
+function setStatus(elemID, status) {
+  var elem = document.getElementById(elemID);
+  if (/^OK$/i.test(status)) {
+    elem.classList.add('ok');
+    elem.classList.remove('fail');
+  } else if (/^FAIL$/i.test(status)) {
+    elem.classList.add('fail');
+    elem.classList.remove('ok');
+  } else {
+    elem.classList.remove('ok');
+    elem.classList.remove('fail');
+  }
+  elem.textContent = status;
+}
+
+window.onload = function() {
+  BellBotAPI.init('api-script');
+  setStatus('load-status', 'OK');
+};
+    </script>
+    <style type="text/css">
+.status { font-weight: bold; color: gray; }
+.status.ok { color: green; }
+.status.fail { color: red; }
+    </style>
   </head>
   <body>
     <h1>BellBot API test page</h1>
-    <p>Hello World!</p>
+    <p>Load status: <span id="load-status" class="status">???</span></p>
   </body>
 </html>
