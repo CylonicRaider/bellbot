@@ -5,6 +5,8 @@
     <title>BellBot API test page</title>
     <script id="api-script" src="sdk.js" defer="defer"></script>
     <script type="application/javascript">
+var WATCHER_COUNTER = 0;
+
 function setStatus(elemID, status) {
   var elem = document.getElementById(elemID);
   if (/^OK$/i.test(status)) {
@@ -20,19 +22,72 @@ function setStatus(elemID, status) {
   elem.textContent = status;
 }
 
+function onNewWatcher(event) {
+  function onDeadlineChange(deadline) {
+    deadlineNode.textContent = deadline.toString();
+  }
+  function onDeadline() {
+    deadlineCount++;
+    counterNode.textContent = deadlineCount.toString();
+  }
+  event.preventDefault();
+  /* Obtain the new watcher's label. */
+  var labelInput = document.getElementById('new-watcher-label');
+  var label = labelInput.value;
+  labelInput.value = '';
+  /* Create the watcher(s). */
+  var watcherID = ++WATCHER_COUNTER;
+  var deadlineCount = 0;
+  BellBotAPI.watchDeadline(label, onDeadlineChange);
+  BellBotAPI.runAtDeadline(label, onDeadline);
+  /* Create the UI and store its elements in convenient variables. */
+  var node = document.getElementById('watcher-template').cloneNode(true);
+  var nameNode = node.querySelector('.watcher-name');
+  var deadlineNode = node.querySelector('.watcher-deadline');
+  var counterNode = node.querySelector('.watcher-counter');
+  /* Fill in or initialize the various UI fields. */
+  node.id = 'watcher-' + watcherID;
+  node.onsubmit = function(event) {
+    event.preventDefault();
+    BellBotAPI.unwatchDeadline(label, onDeadlineChange);
+    BellBotAPI.dontRunAtDeadline(label, onDeadline);
+    node.parentNode.removeChild(node);
+  };
+  nameNode.textContent = label;
+  deadlineNode.textContent = 'N/A';
+  counterNode.textContent = '0';
+  /* Display the UI. */
+  document.getElementById('watchers').appendChild(node);
+}
+
 window.onload = function() {
   BellBotAPI.init('api-script');
   setStatus('load-status', 'OK');
+  document.getElementById('new-watcher').onsubmit = onNewWatcher;
 };
     </script>
     <style type="text/css">
 .status { font-weight: bold; color: gray; }
 .status.ok { color: green; }
 .status.fail { color: red; }
+.watcher-name { font-weight: bold; }
+#watcher-template { display: none; }
     </style>
   </head>
   <body>
     <h1>BellBot API test page</h1>
     <p>Load status: <span id="load-status" class="status">???</span></p>
+    <form action="#" id="new-watcher">
+      <input type="text" id="new-watcher-label" placeholder="Label"
+             autofocus="autofocus"/>
+      <input type="submit" value="New watcher"/>
+    </form>
+    <div id="watchers"></div>
+    <form action="#" id="watcher-template">
+      <span class="watcher-name">???</span>:
+      Deadline <span class="watcher-deadline">???</span> (passed
+        <span class="watcher-counter">???</span> times).
+      <input type="submit" value="Drop"/>
+    </form>
   </body>
 </html>
