@@ -34,6 +34,11 @@ void function() {
       }
       apiBaseURL = new URL('.', effScriptURL).href;
     },
+    /* Ensure the given deadline label is valid. */
+    _validateLabel: function(label) {
+      if (! /^[^./]+$/.test(label))
+        throw new Error('Invalid label: ' + label);
+    },
     /* Parse the given API-level representation of a deadline into its
      * JavaScript form. */
     _parseDeadline: function(value) {
@@ -45,7 +50,8 @@ void function() {
       if (deadlineTrackers[label]) return;
       var info = {
         label: label,
-        es: new EventSource(apiBaseURL + label + '/watch'),
+        es: new EventSource(apiBaseURL + encodeURIComponent(label) +
+                            '/watch'),
         ready: false,
         value: null,
         listeners: []
