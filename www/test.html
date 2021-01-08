@@ -35,11 +35,9 @@ function onNewWatcher(event) {
   var labelInput = document.getElementById('new-watcher-label');
   var label = labelInput.value;
   labelInput.value = '';
-  /* Create the watcher(s). */
+  /* Process counters. */
   var watcherID = ++WATCHER_COUNTER;
   var deadlineCount = 0;
-  BellBotAPI.watchDeadline(label, onDeadlineChange);
-  BellBotAPI.runAtDeadline(label, onDeadline);
   /* Create the UI and store its elements in convenient variables. */
   var node = document.getElementById('watcher-template').cloneNode(true);
   var nameNode = node.querySelector('.watcher-name');
@@ -56,6 +54,9 @@ function onNewWatcher(event) {
   nameNode.textContent = label;
   deadlineNode.textContent = 'N/A';
   counterNode.textContent = '0';
+  /* Install the actual watchers. */
+  BellBotAPI.watchDeadline(label, onDeadlineChange);
+  BellBotAPI.runAtDeadline(label, onDeadline);
   /* Display the UI. */
   document.getElementById('watchers').appendChild(node);
 }

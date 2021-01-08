@@ -46,6 +46,7 @@ void function() {
       var info = {
         label: label,
         es: new EventSource(apiBaseURL + label + '/watch'),
+        ready: false,
         value: null,
         listeners: []
       };
@@ -54,6 +55,7 @@ void function() {
           es.close();
           return;
         }
+        info.ready = true;
         info.value = BellBotAPI._parseDeadline(event.data);
         info.listeners.forEach(function(l) {
           l.call(info, info.value);
@@ -61,7 +63,7 @@ void function() {
       };
       info.es.onerror = function(event) {
         if (deadlineTrackers[label] != info) {
-          es.close();
+          info.es.close();
           return;
         }
         delete deadlineTrackers[label];
@@ -77,7 +79,9 @@ void function() {
     /* Listen for updates of the given deadline. */
     watchDeadline: function(label, callback) {
       BellBotAPI._trackDeadline(label);
-      deadlineTrackers[label].push(callback);
+      var tracker = deadlineTrackers[label];
+      if (tracker.ready) callback.call(tracker, tracker.value);
+      tracker.listeners.push(callback);
     },
     /* Stop listening the given deadline's changes. */
     unwatchDeadline: function(label, callback) {
