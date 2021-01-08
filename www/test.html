@@ -7,6 +7,15 @@
     <script type="application/javascript">
 var WATCHER_COUNTER = 0;
 
+function leftpad(s, l, p) {
+  s = s.toString();
+  while (s.length < l) s = p + s;
+  return s;
+}
+function pad00(s) {
+  return leftpad(s, 2, '0');
+}
+
 function setStatus(elemID, status) {
   var elem = document.getElementById(elemID);
   if (/^OK$/i.test(status)) {
@@ -24,7 +33,16 @@ function setStatus(elemID, status) {
 
 function onNewWatcher(event) {
   function onDeadlineChange(deadline) {
-    deadlineNode.textContent = deadline.toString();
+    var text;
+    if (deadline == null) {
+      text = 'N/A';
+    } else {
+      var date = new Date(deadline);
+      text = date.getFullYear() + '-' + pad00(date.getMonth() + 1) + '-' +
+        pad00(date.getDate()) + ' ' + pad00(date.getHours()) + ':' +
+        pad00(date.getMinutes()) + ':' + pad00(date.getSeconds());
+    }
+    deadlineNode.textContent = text;
   }
   function onDeadline() {
     deadlineCount++;
@@ -87,7 +105,7 @@ window.onload = function() {
     <form action="#" id="watcher-template">
       <span class="watcher-name">???</span>:
       Deadline <span class="watcher-deadline">???</span> (passed
-        <span class="watcher-counter">???</span> times).
+        <span class="watcher-counter">???</span> time(s)).
       <input type="submit" value="Drop"/>
     </form>
   </body>
