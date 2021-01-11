@@ -61,8 +61,11 @@ void function() {
           es.close();
           return;
         }
+        var newValue = BellBotAPI._parseDeadline(event.data);
+        var changed = (! info.ready || newValue != info.value);
         info.ready = true;
-        info.value = BellBotAPI._parseDeadline(event.data);
+        info.value = newValue;
+        if (! changed) return;
         info.listeners.forEach(function(l) {
           l.call(info, info.value);
         });
