@@ -17,6 +17,7 @@ import websocket_server
 DEFAULT_TIMEOUT = 604800 # 1 week
 DEFAULT_WARNING = '/me *Dong*...'
 WAITER_FUZZ = 1 # 1 second
+SSE_REFRESH = 30 # 30 seconds
 
 TIME_TOKEN_RE = re.compile(r'\s*([0-9]+(\.[0-9]+)?)([wdhms])\s*')
 TIME_TOKEN_VALUES = {'w': 604800, 'd': 86400, 'h': 3600, 'm': 60, 's': 1}
@@ -199,7 +200,7 @@ class APIHandler:
             hnd.wfile.write(('data: %s\r\n\r\n' %
                              self._format_deadline(value)).encode('ascii'))
             hnd.wfile.flush()
-            value = self.parent.wait_deadline(room)
+            value = self.parent.wait_deadline(room, SSE_REFRESH)
 
     def make_request_handler(self):
         def serve_file(hnd):
